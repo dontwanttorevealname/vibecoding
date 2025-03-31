@@ -1,0 +1,21 @@
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#game {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Hide cursor when in game (we'll create our own aiming reticle) */
+#game.playing {
+  cursor: none;
+}

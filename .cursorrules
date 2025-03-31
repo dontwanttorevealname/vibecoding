@@ -1,0 +1,82 @@
+# cursorrules file for 3D Top-Down Zombie Wave Shooter
+
+# Project Overview
+project_name: "3D Top-Down Zombie Wave Shooter"
+description: "A 3D top-down style zombie wave shooter game inspired by 'zombs.io'. The game will feature various upgrades, enemy types, and waves of zombies that increase in difficulty. The project is built using Three.js."
+
+# Key Features:
+features:
+  - "3D environment created with Three.js"
+  - "Top-down camera perspective"
+  - "Multiple enemy types with unique behaviors"
+  - "Wave-based gameplay with increasing difficulty"
+  - "Upgrade and power-up system for the player"
+  - "Audio and visual feedback for player actions"
+
+# Documentation:
+documentation:
+  - "Three.js Documentation: https://threejs.org/docs/index.html"
+  - "Three.js Examples: https://threejs.org/examples/"
+  - "Game Design Basics: https://www.gamedeveloper.com/design/game-design-languages"
+  - "Basic Game Loop in JavaScript: https://developer.mozilla.org/en-US/docs/Games/Techniques/Basic_game_loop"
+  - "HTML5 Game Development Tutorial: https://www.tutorialspoint.com/html5/html5_game_development.htm"
+  - "Object-Oriented Programming in JavaScript: https://developer.mozilla.org/en-US/docs/Learn/JavaScript/Objects/Object-oriented_JS"
+  
+# Sound Libraries:
+sound_libraries:
+  - "Howler.js: https://howlerjs.com/"
+  - "Tone.js: https://tonejs.github.io/"
+  - "FreeSound: https://freesound.org/"
+  - "ZapSplat: https://www.zapsplat.com/"
+  - "GameSounds.xyz: https://www.gamesounds.xyz/"
+  - "Pizzicato.js: https://alemangui.github.io/pizzicato/"
+
+# Development Process
+development_process:
+  - "Create a basic 3D scene using Three.js"
+  - "Implement top-down camera controls"
+  - "Design player character and its movement mechanics"
+  - "Develop various enemy types with unique AI behaviors"
+  - "Implement wave spawning mechanics for enemies"
+  - "Add player upgrade mechanisms (weapons, health upgrades, etc.)"
+  - "Incorporate user interface for health, score, and upgrades"
+  - "Integrate audio and visual effects for a more engaging experience"
+  - "All 3D models must be generated through code; no pre-existing assets should be used."
+  - "Test and iterate on gameplay balance and user experience"
+
+# Tools and Technologies
+tools:
+  - "Three.js"
+  - "HTML5"
+  - "CSS"
+  - "WebGL"
+  - "JavaScript"
+  - "Audio Libraries (e.g., Howler.js for audio effects)"
+
+# Target Platforms:
+target_platforms:
+  - "Web Browsers"
+
+
+# Inspiration:
+inspiration:
+  - "'zombs.io' for wave shooter mechanics and user engagement"
+  - "Classic arcade games for simple yet addictive gameplay"
+  - "Survival horror games for thematic elements and atmosphere"
+
+# Project Milestones:
+milestones:
+  - "Initial prototype featuring basic movement and enemy behavior"
+  - "First playable version with basic wave spawning and upgrades"
+  - "Polished game with audio, UI, and a variety of enemy types"
+  - "Final release and deployment on web platform"
+
+# Notes for Cursor AI:
+notes:
+  - "Focus on understanding wave mechanics and enemy AI design."
+  - "Review Three.js features relevant to 3D geometry, animations, and audio."
+  - "For each new gameplay feature, ensure you ask for a sound effect asset to be added."
+  - "All models and 3D assets must be rendered through code; no pre-existing assets are allowed."
+  - "Consider best practices in game design for engaging player experiences."
+
+# End of cursorrules file
