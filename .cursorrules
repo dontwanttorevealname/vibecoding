@@ -1,13 +1,13 @@
-# cursorrules file for 3D Top-Down Zombie Wave Shooter
+# cursorrules file for FPS Zombie Wave Shooter
 
 # Project Overview
-project_name: "3D Top-Down Zombie Wave Shooter"
-description: "A 3D top-down style zombie wave shooter game inspired by 'zombs.io'. The game will feature various upgrades, enemy types, and waves of zombies that increase in difficulty. The project is built using Three.js."
+project_name: "First Person Zombie Wave Shooter"
+description: "A FPS style zombie wave shooter game inspired by 'zombs.io'. The game will feature various upgrades, enemy types, and waves of zombies that increase in difficulty. The project is built using Three.js."
 
 # Key Features:
 features:
   - "3D environment created with Three.js"
-  - "Top-down camera perspective"
+  - "First Person camera perspective"
   - "Multiple enemy types with unique behaviors"
   - "Wave-based gameplay with increasing difficulty"
   - "Upgrade and power-up system for the player"
@@ -34,7 +34,7 @@ sound_libraries:
 # Development Process
 development_process:
   - "Create a basic 3D scene using Three.js"
-  - "Implement top-down camera controls"
+  - "Implement fps camera controls"
   - "Design player character and its movement mechanics"
   - "Develop various enemy types with unique AI behaviors"
   - "Implement wave spawning mechanics for enemies"
