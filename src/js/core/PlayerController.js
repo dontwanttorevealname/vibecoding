@@ -5,9 +5,10 @@ import * as THREE from 'three';
  * Handles player movement, camera controls, and collision detection
  */
 export class PlayerController {
-    constructor(gameState, audioManager) {
+    constructor(gameState, audioManager, uiManager) {
         this.gameState = gameState;
         this.audioManager = audioManager;
+        this.uiManager = uiManager;
         
         // Movement constants
         this.MOVEMENT_SPEED = 5;
@@ -28,6 +29,18 @@ export class PlayerController {
         this.yaw = 0;
         this.pitch = 0;
         this.obstacles = [];
+        
+        // Healing state
+        this.isHealing = false;
+        this.healAmount = 0;
+        this.healDuration = 0;
+        this.healProgress = 0;
+        this.healStartTime = 0;
+        this.healthBeforeHealing = 0; // Track health before healing started
+        
+        // Action key (E) state
+        this.actionKeyPressed = false;
+        this.actionKeyCooldown = 0; // Cooldown for E key to prevent multiple actions
         
         // Headbob animation state
         this.camera.userData = {
@@ -123,6 +136,24 @@ export class PlayerController {
     }
     
     /**
+     * Check if the action key (E) is pressed
+     * @returns {boolean} Whether the action key is currently pressed and ready to use
+     */
+    isActionKeyPressed() {
+        // For this interaction, we only care about the actionKeyPressed state
+        // which gets set to true on the rising edge of the E key press
+        // and will be reset to false after use
+        return this.actionKeyPressed;
+    }
+    
+    /**
+     * Reset the action key state after it's been used
+     */
+    consumeActionKeyPress() {
+        this.actionKeyPressed = false;
+    }
+    
+    /**
      * Update player state
      * @param {number} deltaTime - Time since last update
      */
@@ -170,6 +201,26 @@ export class PlayerController {
                     this.camera.position.z = newZ;
                 }
             }
+        }
+        
+        // Update action key cooldown
+        if (this.actionKeyCooldown > 0) {
+            this.actionKeyCooldown -= deltaTime;
+        }
+        
+        // Check if E key was just pressed (rising edge detection)
+        if (keys.e && !this.actionKeyPressed && this.actionKeyCooldown <= 0) {
+            this.actionKeyPressed = true;
+            this.actionKeyCooldown = 0.5; // 500ms cooldown to prevent rapid pressing
+            console.log("E key pressed, setting actionKeyPressed to true");
+        } else if (!keys.e && this.actionKeyPressed) {
+            // Reset when key is released
+            this.actionKeyPressed = false;
+        }
+        
+        // Update healing if in progress
+        if (this.isHealing) {
+            this.updateHealing(deltaTime);
         }
     }
     
@@ -234,11 +285,100 @@ export class PlayerController {
     }
     
     /**
-     * Apply damage to the player
-     * @param {number} amount - Amount of damage to apply
+     * Start healing the player
+     * @param {number} amount - Amount of health to heal
+     * @param {number} duration - Duration of healing in seconds
+     */
+    startHealing(amount, duration) {
+        // Don't heal if already at max health
+        if (this.health >= 100) {
+            return false;
+        }
+        
+        this.isHealing = true;
+        this.healAmount = amount;
+        this.healDuration = duration;
+        this.healProgress = 0;
+        this.healStartTime = performance.now() / 1000;
+        this.healthBeforeHealing = this.health; // Store current health when healing starts
+        
+        return true;
+    }
+    
+    /**
+     * Update healing progress
+     * @param {number} deltaTime - Time since last update
+     */
+    updateHealing(deltaTime) {
+        if (!this.isHealing) return;
+        
+        const currentTime = performance.now() / 1000;
+        const elapsedTime = currentTime - this.healStartTime;
+        
+        // Calculate healing progress (0 to 1)
+        this.healProgress = Math.min(elapsedTime / this.healDuration, 1);
+        
+        // Apply partial healing based on progress
+        const newHealing = (this.healAmount * this.healProgress) - (this.healAmount * (this.healProgress - deltaTime / this.healDuration));
+        this.health = Math.min(100, this.health + newHealing);
+        
+        // Check if healing is complete
+        if (this.healProgress >= 1) {
+            this.isHealing = false;
+        }
+    }
+    
+    /**
+     * Cancel healing if it's in progress
+     * @returns {boolean} Whether healing was canceled
+     */
+    cancelHealing() {
+        if (!this.isHealing) return false;
+        
+        // Stop healing
+        this.isHealing = false;
+        
+        // We keep the partial healing that was already applied
+        console.log(`Healing canceled at ${Math.round(this.healProgress * 100)}% progress`);
+        
+        return true;
+    }
+    
+    /**
+     * Get healing state info
+     * @returns {Object} Healing state information
+     */
+    getHealingInfo() {
+        return {
+            isHealing: this.isHealing,
+            progress: this.healProgress
+        };
+    }
+    
+    /**
+     * Instantly heal the player
+     * @param {number} amount - Amount of health to add
+     */
+    heal(amount) {
+        this.health = Math.min(100, this.health + amount);
+    }
+    
+    /**
+     * Take damage
+     * @param {number} amount - Amount of damage to take
      */
     takeDamage(amount) {
+        // Cancel healing if we're hit
+        if (this.isHealing) {
+            this.cancelHealing();
+        }
+        
         this.health = Math.max(0, this.health - amount);
+        
+        // Trigger the red flash effect when taking damage
+        if (this.uiManager && amount > 0) {
+            this.uiManager.flashScreenRed();
+        }
     }
     
     /**

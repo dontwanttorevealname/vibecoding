@@ -44,6 +44,24 @@ export class ZombieManager {
                 death: 0.4    // Much lower pitch for death sounds
             }
         };
+        
+        // Runner zombie parameters (faster, weaker)
+        this.RUNNER_ZOMBIE = {
+            health: 60,
+            speed: 4.2, // Reduced from 5.5 to 4.2 - still faster than player's 5 but not too fast
+            damage: 5,
+            skinColor: 0xa8b9a8, // Lighter skin color
+            eyeColor: 0xff6600, // Orange-red eyes
+            clothesColor: 0x4a413c, // Lighter tattered clothes
+            scale: 0.9, // Slightly smaller than regular zombies
+            soundPitch: {
+                groan: 1.3,   // Higher pitch for groans
+                attack: 1.0,   // Reduced from 1.2 to 1.0
+                pain: 1.0,     // Reduced from 1.2 to 1.0
+                death: 1.0     // Reduced from 1.2 to 1.0
+            },
+            attackCooldown: 0.6 // Faster attack rate (vs 1 second for normal zombies)
+        };
     }
     
     /**
@@ -68,12 +86,16 @@ export class ZombieManager {
      * Create a Minecraft-style zombie at the given position
      * @param {number} x - X position
      * @param {number} z - Z position
-     * @param {string} type - Type of zombie: 'regular' or 'tank'
+     * @param {string} type - Type of zombie: 'regular', 'tank', or 'runner'
      * @returns {THREE.Group} The created zombie
      */
     createZombie(x, z, type = 'regular') {
         // Get zombie params based on type
-        const params = type === 'tank' ? this.TANK_ZOMBIE : this.REGULAR_ZOMBIE;
+        const params = type === 'tank' ? this.TANK_ZOMBIE : type === 'runner' ? this.RUNNER_ZOMBIE : this.REGULAR_ZOMBIE;
+        
+        // Determine attack cooldown - default to 1.0 for regular and tank zombies if not specified
+        const attackCooldown = params.attackCooldown !== undefined ? params.attackCooldown : 
+                             (type === 'runner' ? 0.6 : 1.0);
         
         const zombie = new THREE.Group();
         
@@ -171,11 +193,11 @@ export class ZombieManager {
             damage: params.damage,
             isWalking: true, // Default to walking
             walkTime: Math.random() * Math.PI * 2, // Randomize starting walk phase
-            walkSpeed: 3.5, // Fixed walk speed for animation
+            walkSpeed: type === 'runner' ? 7.0 : type === 'tank' ? 2.5 : 4.5, // Different walk speeds based on type
             radius: 0.5 * params.scale, // Collision radius adjusted for scale
             attackRange: 1.2 * params.scale, // Attack range adjusted for scale
             hitRange: 2.5 * params.scale, // Slightly larger than attack range
-            attackCooldown: 1, // Time between attacks
+            attackCooldown: attackCooldown, // Time between attacks
             lastAttackTime: 0,
             lastSoundTime: 0,
             soundCooldown: 5 + Math.random() * 10, // 5-15 seconds
@@ -401,95 +423,57 @@ export class ZombieManager {
     }
     
     /**
-     * Apply damage to a zombie and handle hit effects
-     * @param {THREE.Group} zombie - Zombie to damage
+     * Damage a zombie and check if it's killed
+     * @param {THREE.Group} zombie - The zombie to damage
      * @param {number} damage - Amount of damage to apply
-     * @param {THREE.Camera} camera - Player camera for hit effects
+     * @param {THREE.Camera} camera - Player camera for sound positioning
      * @returns {boolean} Whether the zombie was killed
      */
     damageZombie(zombie, damage, camera) {
+        // Ensure zombie has proper userData
+        if (!zombie.userData) {
+            zombie.userData = {};
+        }
+        
         // Apply damage
         zombie.userData.health -= damage;
         
-        // Set hit flash effect
-        zombie.userData.isHit = true;
-        zombie.userData.hitFlashTime = 0;
+        // Create hit effect
+        this.createZombieHitEffect(zombie, camera);
         
-        // Apply red color to all zombie parts
-        for (const [part, material] of Object.entries(zombie.userData.materials)) {
-            material.color.setHex(0xff0000); // Set to red
-            // Special handling for eyes - make them glow more brightly
-            if (part.includes('Eye')) {
-                material.emissive.setHex(0xff0000); // Bright red glow
-                material.emissiveIntensity = 1.0; // Full intensity
-            } else {
-                material.emissive.setHex(0x330000); // Add slight glow to other parts
-                material.emissiveIntensity = 0.5;
-            }
+        // Play pain sound
+        if (zombie.userData.health > 0) {
+            this.playZombiePainSound(zombie, camera);
         }
         
-        // Create a direction vector from player to zombie (for particle direction)
-        const hitDirection = new THREE.Vector3(
-            zombie.position.x - camera.position.x,
-            0, // Keep it flat on xz plane
-            zombie.position.z - camera.position.z
-        );
-        
-        // Spawn blood particles at zombie position with direction towards player
-        this.particleSystem.spawnBloodParticles(zombie.position, hitDirection);
-        
-        // Handle death
-        if (zombie.userData.health <= 0) {
-            // Set death state
+        // Check if zombie is killed
+        if (zombie.userData.health <= 0 && !zombie.userData.isDead) {
+            // Mark zombie as dead
             zombie.userData.isDead = true;
-            zombie.userData.deathAnimationProgress = 0;
+            zombie.userData.deathTime = performance.now() / 1000;
             
-            // Initialize death sound if not already present
-            if (!zombie.userData.deathSound) {
-                zombie.userData.deathSound = this.audioManager.createZombieDeathSound();
-            }
+            // Force the zombie position to be on the ground before spawning the health pack
+            const originalY = zombie.position.y;
+            zombie.position.y = 0;
             
-            // Get the death pitch from the zombie's sound pitch settings
-            const pitch = zombie.userData.soundPitch.death;
+            // IMPORTANT: Set flag to spawn health pack
+            zombie.userData.shouldSpawnHealthPack = true;
             
-            // Play the death sound at zombie position with death pitch
-            this.audioManager.playPositionedSound(
-                zombie.userData.deathSound, 
-                zombie.position, 
-                camera.position, 
-                camera.quaternion, 
-                0.8,
-                pitch // Pass the death pitch value
-            );
+            console.log(`Zombie killed! Set shouldSpawnHealthPack flag at position (${zombie.position.x}, ${zombie.position.z})`);
             
-            // Remove from zombies array for collision detection after death animation
-            const zombieIndex = this.zombies.indexOf(zombie);
-            if (zombieIndex !== -1) {
-                // We will keep the zombie in the array but mark it as dead
-                // It will be removed later after death animation completes
-            }
-        } else {
-            // Play a pain sound instead of attack sound for hit reaction
-            if (!zombie.userData.painSound) {
-                zombie.userData.painSound = this.audioManager.createZombiePainSound();
-            }
+            // Restore original Y position
+            zombie.position.y = originalY;
             
-            // Get the pain pitch from the zombie's sound pitch settings
-            const pitch = zombie.userData.soundPitch.pain;
+            // Play death sound
+            this.playZombieDeathSound(zombie, camera);
             
-            // Play hit reaction sound with pain pitch
-            this.audioManager.playPositionedSound(
-                zombie.userData.painSound, 
-                zombie.position, 
-                camera.position, 
-                camera.quaternion, 
-                0.6,
-                pitch // Pass the pain pitch value
-            );
+            // Create particle effect at zombie position
+            this.particleSystem.createDeathEffect(zombie.position.x, zombie.position.y + 1, zombie.position.z);
+            
+            return true;
         }
         
-        // Return true if zombie is killed
-        return zombie.userData.health <= 0;
+        return false;
     }
     
     /**
@@ -588,8 +572,15 @@ export class ZombieManager {
         zombie.userData.pathfindCooldown -= deltaTime;
         zombie.userData.avoidanceTime -= deltaTime;
         
-        // Simplified state machine - only chase and attack
-        if (distanceToPlayer <= zombie.userData.attackRange) {
+        // Determine zombie state based on distance to player
+        // Attack range includes a small margin to avoid flipping between states
+        const isInAttackRange = distanceToPlayer <= (zombie.userData.attackRange + 0.1);
+        
+        // Set current state
+        zombie.userData.state = isInAttackRange ? 'attack' : 'chase';
+        
+        // Handle the current state
+        if (zombie.userData.state === 'attack') {
             // Handle attack state
             this.handleAttackState(zombie, deltaTime, player, camera);
         } else {
@@ -669,22 +660,98 @@ export class ZombieManager {
      * @param {number} speedFactor - Speed factor for animation
      */
     updateZombieWalkingAnimation(zombie, walkTime, speedFactor) {
-        // Basic body bobbing animation for walking
-        const walkOffset = Math.sin(walkTime * 3.5) * 0.1;
-        zombie.position.y = walkOffset;
+        const zombieType = zombie.userData.zombieType;
         
-        // Arm swing animation for walking
-        if (zombie.userData.leftArm && zombie.userData.rightArm) {
-            // Opposite arm swings with negated sine to swing forward correctly
-            zombie.userData.leftArm.rotation.x = -Math.sin(walkTime * 3.5) * 0.4;
-            zombie.userData.rightArm.rotation.x = -Math.sin(walkTime * 3.5 + Math.PI) * 0.4;
+        // Define animation characteristics based on zombie type
+        let animationConfig = {
+            // Default animation values for regular zombies
+            frequency: 4.5,       // Animation speed
+            bobAmount: 0.1,       // How much the body moves up and down
+            armSwingAmount: 0.4,  // How far the arms swing
+            legSwingAmount: 0.4,  // How far the legs swing
+            headTiltAmount: 0.08  // Reduced head tilt for regular zombies (was 0.2)
+        };
+        
+        // Customize animation for each zombie type
+        if (zombieType === 'runner') {
+            // Runner zombies have faster, more frantic animations
+            animationConfig = {
+                frequency: 7.0,         // Much faster animation
+                bobAmount: 0.15,        // More exaggerated bobbing
+                armSwingAmount: 0.7,    // Wider arm swings
+                legSwingAmount: 0.7,    // Wider leg swings
+                headTiltAmount: 0.25    // More head movement
+            };
+        } else if (zombieType === 'tank') {
+            // Tank zombies have slower, heavier animations
+            animationConfig = {
+                frequency: 2.5,         // Slower animation
+                bobAmount: 0.08,        // Less vertical movement (heavier)
+                armSwingAmount: 0.3,    // Smaller arm swings (bulkier)
+                legSwingAmount: 0.25,   // Smaller leg swings (ponderous)
+                headTiltAmount: 0.1     // Less head movement (stiff)
+            };
         }
         
-        // Leg swing animation for walking
+        // Apply animation based on configuration
+        
+        // Body bobbing animation for walking
+        const walkOffset = Math.sin(walkTime * animationConfig.frequency) * animationConfig.bobAmount;
+        zombie.position.y = walkOffset;
+        
+        // Arm swing animation
+        if (zombie.userData.leftArm && zombie.userData.rightArm) {
+            // For runners, make a more frantic animation style
+            if (zombieType === 'runner') {
+                // Higher arm position and faster swinging with both arms forward
+                zombie.userData.leftArm.rotation.x = -0.2 - Math.sin(walkTime * animationConfig.frequency) * animationConfig.armSwingAmount;
+                zombie.userData.rightArm.rotation.x = -0.2 - Math.sin(walkTime * animationConfig.frequency + Math.PI * 0.5) * animationConfig.armSwingAmount;
+                
+                // Add some sideways swinging for runner (more frantic)
+                zombie.userData.leftArm.rotation.z = -Math.sin(walkTime * animationConfig.frequency * 1.5) * 0.2;
+                zombie.userData.rightArm.rotation.z = Math.sin(walkTime * animationConfig.frequency * 1.5) * 0.2;
+            } else if (zombieType === 'tank') {
+                // Tank zombies have arms more out to the sides and move slower
+                zombie.userData.leftArm.rotation.x = -Math.sin(walkTime * animationConfig.frequency) * animationConfig.armSwingAmount;
+                zombie.userData.rightArm.rotation.x = -Math.sin(walkTime * animationConfig.frequency + Math.PI) * animationConfig.armSwingAmount;
+                
+                // Arms slightly out to the sides (bulkier)
+                zombie.userData.leftArm.rotation.z = -0.2;
+                zombie.userData.rightArm.rotation.z = 0.2;
+            } else {
+                // Regular zombies - normal arm swing
+                zombie.userData.leftArm.rotation.x = -Math.sin(walkTime * animationConfig.frequency) * animationConfig.armSwingAmount;
+                zombie.userData.rightArm.rotation.x = -Math.sin(walkTime * animationConfig.frequency + Math.PI) * animationConfig.armSwingAmount;
+            }
+        }
+        
+        // Leg swing animation
         if (zombie.userData.leftLeg && zombie.userData.rightLeg) {
-            // Opposite leg swings
-            zombie.userData.leftLeg.rotation.x = Math.sin(walkTime * 3.5) * 0.4;
-            zombie.userData.rightLeg.rotation.x = Math.sin(walkTime * 3.5 + Math.PI) * 0.4;
+            if (zombieType === 'runner') {
+                // Higher steps for runner (like sprinting)
+                zombie.userData.leftLeg.rotation.x = Math.sin(walkTime * animationConfig.frequency) * animationConfig.legSwingAmount;
+                zombie.userData.rightLeg.rotation.x = Math.sin(walkTime * animationConfig.frequency + Math.PI) * animationConfig.legSwingAmount;
+            } else {
+                // Normal or tank leg movement
+                zombie.userData.leftLeg.rotation.x = Math.sin(walkTime * animationConfig.frequency) * animationConfig.legSwingAmount;
+                zombie.userData.rightLeg.rotation.x = Math.sin(walkTime * animationConfig.frequency + Math.PI) * animationConfig.legSwingAmount;
+            }
+        }
+        
+        // Head animation if available
+        if (zombie.userData.head) {
+            // Add a slight head tilt for all zombies (but differently for each type)
+            const headSway = Math.sin(walkTime * (animationConfig.frequency * 0.5)) * animationConfig.headTiltAmount;
+            zombie.userData.head.rotation.z = headSway;
+            
+            // Runners look where they're going more intently
+            if (zombieType === 'runner') {
+                zombie.userData.head.rotation.x = -0.1; // Looking forward intently
+            } 
+            // Tanks have more rigid head movement
+            else if (zombieType === 'tank') {
+                zombie.userData.head.rotation.x = 0.1; // Looking slightly upward/ahead
+            }
         }
     }
     
@@ -701,7 +768,9 @@ export class ZombieManager {
         
         // Check if zombie can attack (cooldown finished)
         const currentTime = performance.now() / 1000; // Convert to seconds
-        if (currentTime - zombie.userData.lastAttackTime >= zombie.userData.attackCooldown) {
+        const attackCooldown = zombie.userData.attackCooldown || 1.0; // Default to 1.0 if not specified
+        
+        if (currentTime - zombie.userData.lastAttackTime >= attackCooldown) {
             // Start attack animation
             zombie.userData.attackProgress = 0;
             zombie.userData.isCurrentlyAttacking = true;
@@ -731,7 +800,9 @@ export class ZombieManager {
         
         // Process attack animation
         if (zombie.userData.isCurrentlyAttacking) {
-            zombie.userData.attackProgress += deltaTime * 5; // Control attack animation speed
+            // Use a faster animation speed for runner zombies
+            const animSpeed = zombie.userData.zombieType === 'runner' ? 7 : 5;
+            zombie.userData.attackProgress += deltaTime * animSpeed;
             
             // Arms attack animation - both arms swing forward together
             if (zombie.userData.leftArm && zombie.userData.rightArm) {
@@ -971,5 +1042,101 @@ export class ZombieManager {
      */
     createTankZombie(x, z) {
         return this.createZombie(x, z, 'tank');
+    }
+    
+    /**
+     * Create a runner zombie at the given position
+     * @param {number} x - X position
+     * @param {number} z - Z position
+     * @returns {THREE.Group} The created zombie
+     */
+    createRunnerZombie(x, z) {
+        return this.createZombie(x, z, 'runner');
+    }
+
+    /**
+     * Create hit effect on zombie when damaged
+     * @param {THREE.Group} zombie - The zombie to create hit effect on
+     * @param {THREE.Camera} camera - Player camera for particle direction
+     */
+    createZombieHitEffect(zombie, camera) {
+        // Set hit flash effect
+        zombie.userData.isHit = true;
+        zombie.userData.hitFlashTime = 0;
+        
+        // Apply red color to all zombie parts
+        for (const [part, material] of Object.entries(zombie.userData.materials)) {
+            material.color.setHex(0xff0000); // Set to red
+            // Special handling for eyes - make them glow more brightly
+            if (part.includes('Eye')) {
+                material.emissive.setHex(0xff0000); // Bright red glow
+                material.emissiveIntensity = 1.0; // Full intensity
+            } else {
+                material.emissive.setHex(0x330000); // Add slight glow to other parts
+                material.emissiveIntensity = 0.5;
+            }
+        }
+        
+        // Create a direction vector from player to zombie (for particle direction)
+        if (camera) {
+            const hitDirection = new THREE.Vector3(
+                zombie.position.x - camera.position.x,
+                0, // Keep it flat on xz plane
+                zombie.position.z - camera.position.z
+            );
+            
+            // Spawn blood particles at zombie position with direction towards player
+            this.particleSystem.spawnBloodParticles(zombie.position, hitDirection);
+        }
+    }
+
+    /**
+     * Play zombie pain sound
+     * @param {THREE.Group} zombie - The zombie to play pain sound for
+     * @param {THREE.Camera} camera - Player camera for sound positioning
+     */
+    playZombiePainSound(zombie, camera) {
+        // Play a pain sound for hit reaction
+        if (!zombie.userData.painSound) {
+            zombie.userData.painSound = this.audioManager.createZombiePainSound();
+        }
+        
+        // Get the pain pitch from the zombie's sound pitch settings
+        const pitch = zombie.userData.soundPitch.pain;
+        
+        // Play hit reaction sound with pain pitch
+        this.audioManager.playPositionedSound(
+            zombie.userData.painSound, 
+            zombie.position, 
+            camera.position, 
+            camera.quaternion, 
+            0.6,
+            pitch // Pass the pain pitch value
+        );
+    }
+
+    /**
+     * Play zombie death sound
+     * @param {THREE.Group} zombie - The zombie to play death sound for
+     * @param {THREE.Camera} camera - Player camera for sound positioning
+     */
+    playZombieDeathSound(zombie, camera) {
+        // Initialize death sound if not already present
+        if (!zombie.userData.deathSound) {
+            zombie.userData.deathSound = this.audioManager.createZombieDeathSound();
+        }
+        
+        // Get the death pitch from the zombie's sound pitch settings
+        const pitch = zombie.userData.soundPitch.death;
+        
+        // Play the death sound at zombie position with death pitch
+        this.audioManager.playPositionedSound(
+            zombie.userData.deathSound, 
+            zombie.position, 
+            camera.position, 
+            camera.quaternion, 
+            0.8,
+            pitch // Pass the death pitch value
+        );
     }
 }

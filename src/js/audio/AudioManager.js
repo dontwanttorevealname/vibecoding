@@ -45,6 +45,18 @@ export class AudioManager {
                 src: ['/sounds/round_start.mp3'],
                 volume: 0.7,
                 rate: 1.0
+            }),
+            heartbeat: new Howl({
+                src: ['/sounds/heartbeat.mp3'],
+                volume: 0.7,
+                rate: 1.0,
+                loop: true
+            }),
+            medkit: new Howl({
+                src: ['/sounds/medkit.mp3'],
+                volume: 0.7,
+                rate: 1.0,
+                duration: 2.5 // Match the healing duration
             })
         };
     }
@@ -52,11 +64,44 @@ export class AudioManager {
     /**
      * Play a sound effect
      * @param {string} soundName - Name of the sound to play
+     * @param {number} volume - Volume to play at (0-1)
+     * @param {boolean} loop - Whether to loop the sound
      * @returns {Howl} The sound object
      */
-    playSound(soundName) {
+    playSound(soundName, volume = null, loop = false) {
         if (this.sounds[soundName]) {
+            // Set volume if provided
+            if (volume !== null) {
+                this.sounds[soundName].volume(volume);
+            }
+            
+            // Set loop if needed
+            this.sounds[soundName].loop(loop);
+            
+            // Play the sound
             this.sounds[soundName].play();
+            return this.sounds[soundName];
+        }
+        return null;
+    }
+    
+    /**
+     * Stop a playing sound
+     * @param {string} soundName - Name of the sound to stop
+     */
+    stopSound(soundName) {
+        if (this.sounds[soundName]) {
+            this.sounds[soundName].stop();
+        }
+    }
+    
+    /**
+     * Create a looping sound instance
+     * @param {string} soundName - Name of the sound to create
+     * @returns {Howl} Sound object
+     */
+    createLoopingSound(soundName) {
+        if (this.sounds[soundName]) {
             return this.sounds[soundName];
         }
         return null;

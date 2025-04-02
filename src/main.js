@@ -9,6 +9,7 @@ import { AudioManager } from './js/audio/AudioManager.js';
 import { UIManager } from './js/ui/UIManager.js';
 import { ParticleSystem } from './js/core/ParticleSystem.js';
 import { WaveManager } from './js/core/WaveManager.js';
+import { HealthPackManager } from './js/entities/HealthPackManager.js';
 
 // Initialize game systems
 const gameState = new GameState();
@@ -18,8 +19,9 @@ const environment = new Environment();
 const particleSystem = new ParticleSystem();
 const zombieManager = new ZombieManager(audioManager, particleSystem);
 const weaponSystem = new WeaponSystem(audioManager, particleSystem);
-const playerController = new PlayerController(gameState, audioManager);
+const playerController = new PlayerController(gameState, audioManager, uiManager);
 const waveManager = new WaveManager(zombieManager, audioManager, uiManager, gameState);
+const healthPackManager = new HealthPackManager(audioManager);
 
 // Create scene and renderer
 const scene = environment.getScene();
@@ -49,6 +51,7 @@ window.addEventListener('resize', () => {
 scene.add(camera);
 zombieManager.addToScene(scene);
 particleSystem.addToScene(scene);
+healthPackManager.addToScene(scene);
 
 // Remove initial zombies from the scene
 const zombies = zombieManager.getZombies();
@@ -79,20 +82,66 @@ function animate() {
     playerController.update(deltaTime);
     zombieManager.update(deltaTime, camera, playerController);
     
+    // Check for zombies that should spawn health packs
+    const zombies = zombieManager.getZombies();
+    for (const zombie of zombies) {
+        // Check if this zombie needs to drop a health pack
+        if (zombie.userData && zombie.userData.shouldSpawnHealthPack === true) {
+            // Spawn a health pack at the zombie's position
+            const healthPack = healthPackManager.spawnHealthPackAtZombie(zombie, scene);
+            
+            // Mark as processed so we don't spawn multiple health packs
+            zombie.userData.shouldSpawnHealthPack = false;
+        }
+    }
+    
+    // Update health packs and check for interaction
+    healthPackManager.update(deltaTime);
+    
+    // Check if player is looking at a health pack
+    healthPackManager.checkHealthPackLookAt(camera);
+    const isLookingAtHealthPack = healthPackManager.getLookingAtHealthPack() !== null;
+    
+    // Handle health pack pickup when E is pressed
+    if (playerController.isActionKeyPressed()) {
+        console.log("Action key press detected in main loop");
+        
+        if (isLookingAtHealthPack) {
+            // Try to use the health pack
+            const used = healthPackManager.tryUseHealthPack(playerController, true);
+            
+            // Consume the action key press regardless of whether the health pack was used
+            playerController.consumeActionKeyPress();
+            
+            if (used) {
+                console.log("Successfully used health pack");
+            }
+        } else {
+            // Consume the action key press if not used for health pack
+            playerController.consumeActionKeyPress();
+        }
+    }
+    
     // Keep player aware of zombies for collision
     playerController.setZombieObstacles(zombieManager.getZombies());
     
     weaponSystem.update(deltaTime);
     particleSystem.update(deltaTime);
+    
+    // Update UI
     uiManager.update(
         playerController.getHealth(), 
         weaponSystem.getCurrentWeapon(),
-        gameState.getScore()
+        gameState.getScore(),
+        deltaTime,
+        audioManager,
+        playerController.getHealingInfo(),
+        { isLookingAtHealthPack: isLookingAtHealthPack }
     );
     
     // Check for wave completion
-    const waveCompleted = waveManager.update();
-    if (waveCompleted && !waveComplete) {
+    const isWaveCompleted = waveManager.update();
+    if (isWaveCompleted && !waveComplete) {
         waveComplete = true;
         
         console.log("Wave completed, starting next wave");

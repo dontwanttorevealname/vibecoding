@@ -9,7 +9,8 @@ export class GameState {
             w: false,
             a: false,
             s: false,
-            d: false
+            d: false,
+            e: false  // Add E key for health pack interactions
         };
         
         // Game state

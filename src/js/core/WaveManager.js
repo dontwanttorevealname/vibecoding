@@ -14,13 +14,13 @@ export class WaveManager {
         
         // Wave configuration
         this.waveConfigurations = [
-            { regularZombies: 5, tankZombies: 0 },   // Wave 1
-            { regularZombies: 7, tankZombies: 0 },   // Wave 2
-            { regularZombies: 7, tankZombies: 1 },   // Wave 3
-            { regularZombies: 10, tankZombies: 1 },  // Wave 4
-            { regularZombies: 10, tankZombies: 2 },  // Wave 5
-            { regularZombies: 13, tankZombies: 2 },  // Wave 6
-            { regularZombies: 15, tankZombies: 3 }   // Wave 7
+            { regularZombies: 5, tankZombies: 0, runnerZombies: 0 },   // Wave 1
+            { regularZombies: 7, tankZombies: 0, runnerZombies: 2 },   // Wave 2
+            { regularZombies: 7, tankZombies: 1, runnerZombies: 2 },   // Wave 3
+            { regularZombies: 8, tankZombies: 1, runnerZombies: 3 },   // Wave 4
+            { regularZombies: 9, tankZombies: 2, runnerZombies: 5 },   // Wave 5
+            { regularZombies: 10, tankZombies: 2, runnerZombies: 7 },  // Wave 6
+            { regularZombies: 12, tankZombies: 3, runnerZombies: 10 }  // Wave 7
         ];
         
         // Wave state
@@ -75,7 +75,8 @@ export class WaveManager {
             const lastWaveConfig = this.waveConfigurations[this.waveConfigurations.length - 1];
             const newWaveConfig = {
                 regularZombies: Math.floor(lastWaveConfig.regularZombies * 1.2),
-                tankZombies: Math.floor(lastWaveConfig.tankZombies * 1.2) + 1
+                tankZombies: Math.floor(lastWaveConfig.tankZombies * 1.2) + 1,
+                runnerZombies: Math.floor(lastWaveConfig.runnerZombies * 1.3) + 2
             };
             this.waveConfigurations.push(newWaveConfig);
         }
@@ -92,7 +93,7 @@ export class WaveManager {
         // Set wave state
         this.waveActive = true;
         this.waveStartTime = Date.now();
-        this.zombiesRemaining = waveConfig.regularZombies + waveConfig.tankZombies;
+        this.zombiesRemaining = waveConfig.regularZombies + waveConfig.tankZombies + waveConfig.runnerZombies;
         
         // Spawn zombies with a slight delay
         setTimeout(() => {
@@ -164,7 +165,18 @@ export class WaveManager {
             }
         }
         
-        console.log(`Wave ${this.currentWave}: Spawned ${waveConfig.regularZombies} regular zombies and ${waveConfig.tankZombies} tank zombies`);
+        // Spawn runner zombies with random positioning (closer to player for earlier encounters)
+        for (let i = 0; i < waveConfig.runnerZombies; i++) {
+            const spawnPos = this.getSpawnPosition(35, 55);
+            const zombie = this.zombieManager.createZombie(spawnPos.x, spawnPos.z, 'runner');
+            
+            // Make sure the zombie is added to the scene
+            if (this.scene && !zombie.parent) {
+                this.scene.add(zombie);
+            }
+        }
+        
+        console.log(`Wave ${this.currentWave}: Spawned ${waveConfig.regularZombies} regular zombies, ${waveConfig.tankZombies} tank zombies, and ${waveConfig.runnerZombies} runner zombies`);
     }
     
     /**
@@ -236,6 +248,8 @@ export class WaveManager {
                 if (zombie.userData && zombie.userData.zombieType) {
                     if (zombie.userData.zombieType === 'tank') {
                         this.gameState.addScore(200); // More points for tank zombies
+                    } else if (zombie.userData.zombieType === 'runner') {
+                        this.gameState.addScore(150); // Runner zombies award more points than regular
                     } else {
                         this.gameState.addScore(100); // Regular zombie points
                     }
@@ -259,6 +273,8 @@ export class WaveManager {
                     if (wasKilled && zombie.userData && zombie.userData.zombieType) {
                         if (zombie.userData.zombieType === 'tank') {
                             this.gameState.addScore(200); // More points for tank zombies
+                        } else if (zombie.userData.zombieType === 'runner') {
+                            this.gameState.addScore(150); // Runner zombies award more points than regular
                         } else {
                             this.gameState.addScore(100); // Regular zombie points
                         }
