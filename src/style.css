@@ -105,3 +105,95 @@ html, body {
   font-size: 14px;
   text-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
 }
+
+/* Wave announcement styling */
+.wave-announcement {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Press Start 2P', cursive, sans-serif;
+    font-size: 4rem;
+    color: #ff3333;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.7),
+                 0 0 20px rgba(255, 0, 0, 0.5),
+                 0 0 30px rgba(255, 0, 0, 0.3);
+    z-index: 1000;
+    text-align: center;
+    opacity: 0;
+}
+
+@keyframes waveAnnouncement {
+    0% { 
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.5);
+    }
+    20% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+    }
+    40% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(1.5);
+    }
+}
+
+/* Add wave complete screen styling */
+.wave-complete-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.wave-complete-content {
+    background-color: rgba(51, 51, 51, 0.9);
+    border: 3px solid #ff3333;
+    border-radius: 10px;
+    padding: 40px;
+    text-align: center;
+    color: #fff;
+    font-family: 'Press Start 2P', cursive, sans-serif;
+    box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
+}
+
+.wave-complete-content h1 {
+    font-size: 2rem;
+    margin-bottom: 20px;
+    color: #ff3333;
+    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+}
+
+.wave-complete-content p {
+    font-size: 1.5rem;
+    margin-bottom: 30px;
+}
+
+#continue-button {
+    background-color: #ff3333;
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    font-size: 1.2rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: 'Press Start 2P', cursive, sans-serif;
+    transition: transform 0.1s, background-color 0.3s;
+}
+
+#continue-button:hover {
+    background-color: #ff5555;
+    transform: scale(1.05);
+}
